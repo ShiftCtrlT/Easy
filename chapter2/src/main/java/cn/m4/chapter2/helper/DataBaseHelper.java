@@ -2,6 +2,7 @@ package cn.m4.chapter2.helper;
 
 import cn.m4.chapter2.util.CollectionUtil;
 import cn.m4.chapter2.util.PropUtil;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanHandler;
 import org.apache.commons.dbutils.handlers.BeanListHandler;
@@ -9,6 +10,10 @@ import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -22,6 +27,8 @@ import java.util.Properties;
  */
 public final class DataBaseHelper {
 
+    private static final BasicDataSource DATA_SOURCE;
+
     //Apache Commons DBUtils中的查询执行器
     private static final QueryRunner QUERY_RUNNER  = new QueryRunner();
     //日志打印
@@ -31,27 +38,22 @@ public final class DataBaseHelper {
     // 将ThreadLocal理解为一个隔离线程的容器
     private static final ThreadLocal<Connection> CONNECTION_HOLDER=new ThreadLocal<Connection>();
 
-
-    public static final String DRIVER;
-    public static final String URL;
-    public static final String USERNAME;
-    public static final String PASSWORD;
-
     //静态代码块
     //在代码块中初始化jdbc的四个变量，并获取jdbc驱动
     static{
         Properties props = PropUtil.loadProps("config.properties");
-        DRIVER= props.getProperty("jdbc.driver");
-        URL= props.getProperty("jdbc.url");
-        USERNAME= props.getProperty("jdbc.username");
-        PASSWORD= props.getProperty("jdbc.password");
+        String driver= props.getProperty("jdbc.driver");
+        String url= props.getProperty("jdbc.url");
+        String username= props.getProperty("jdbc.username");
+        String password= props.getProperty("jdbc.password");
 
-        try {
-            Class.forName(DRIVER);
-        } catch (ClassNotFoundException e) {
-//            e.printStackTrace();
-            LOGGER.error("can not load one jdbc driver"+e);
-        }
+        DATA_SOURCE=new BasicDataSource();
+        DATA_SOURCE.setDriverClassName(driver);
+        DATA_SOURCE.setUrl(url);
+        DATA_SOURCE.setUsername(username);
+        DATA_SOURCE.setPassword(password);
+
+
     }
 
     /**
@@ -62,7 +64,7 @@ public final class DataBaseHelper {
         Connection conn= CONNECTION_HOLDER.get();
         if(conn == null){
             try {
-                conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+                conn = DATA_SOURCE.getConnection();
             } catch (SQLException e) {
 //            e.printStackTrace();
                 LOGGER.error("get connection failure ",e);
@@ -76,18 +78,18 @@ public final class DataBaseHelper {
     /**
      * 关闭数据库连接
      */
-    public static void closeConnection(){
-        Connection conn = CONNECTION_HOLDER.get();
-        if(null != conn){
-            try {
-                conn.close();
-            } catch (SQLException e) {
-//                e.printStackTrace();
-                LOGGER.error("close connection failure",e);
-                CONNECTION_HOLDER.remove();
-            }
-        }
-    }
+//    public static void closeConnection(){
+//        Connection conn = CONNECTION_HOLDER.get();//改从连接池中获取连接
+//        if(null != conn){
+//            try {
+//                conn.close();
+//            } catch (SQLException e) {
+////                e.printStackTrace();
+//                LOGGER.error("close connection failure",e);
+//                CONNECTION_HOLDER.remove();
+//            }
+//        }
+//    }
 
     /**
      * 查询实体对象列表
@@ -106,7 +108,7 @@ public final class DataBaseHelper {
             LOGGER.error("query entityList failure ",e);
             throw new RuntimeException(e);
         }finally {
-            closeConnection();
+//            closeConnection();
         }
         return entityList;
     }
@@ -129,7 +131,7 @@ public final class DataBaseHelper {
             LOGGER.error("query entity failure"+e);
             throw new RuntimeException(e);
         }finally {
-            closeConnection();
+//            closeConnection();
         }
         return entity;
     }
@@ -175,7 +177,7 @@ public final class DataBaseHelper {
             throw new RuntimeException(e);
         }
         finally {
-            closeConnection();
+//            closeConnection();
         }
         return rows;
     }
@@ -250,6 +252,24 @@ public final class DataBaseHelper {
     }
 
 
+    /**
+     * 执行sql文件
+     * @param sqlFile
+     */
+    public static void executeSqlFile(String sqlFile){
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(sqlFile);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        String sql;
+        try {
+            while((sql=reader.readLine())!=null){
+                DataBaseHelper.executeUpdate(sql);
+            }
+        } catch (IOException e) {
+//            e.printStackTrace();
+            LOGGER.error("execute sqlFile failure",e);
+            throw new RuntimeException(e);
+        }
+    }
 
 
     /**
