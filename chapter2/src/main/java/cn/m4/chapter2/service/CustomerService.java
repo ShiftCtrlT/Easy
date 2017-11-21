@@ -50,10 +50,10 @@ public class CustomerService {
      */
     public List<Customer> getCustomerList(String keyword){
         Connection con=null;
-        try {
+//        try {
 //            List<Customer> customerList = new ArrayList<Customer>();
             String sql = "select * from customer";
-            con = DataBaseHelper.getConnection();
+//            con = DataBaseHelper.getConnection();
 //            con= DataBaseHelper.getConnection();//改动（1）
 //            PreparedStatement pstmt = con.prepareStatement(sql);
 //            ResultSet rs = pstmt.executeQuery();
@@ -68,15 +68,15 @@ public class CustomerService {
 //                customerList.add(c);
 //            }
 //            return customerList;
-            return DataBaseHelper.queryEntityList(Customer.class,con,sql);
-        } catch (Exception e) {
-//            e.printStackTrace();
-            LOGGER.error("execute sql failure",e);
-        }finally {
-            DataBaseHelper.closeConnection(con); //改动（2）
-        }
+            return DataBaseHelper.queryEntityList(Customer.class,sql);
+//        } catch (Exception e) {
+////            e.printStackTrace();
+//            LOGGER.error("execute sql failure",e);
+//        }finally {
+//            DataBaseHelper.closeConnection(con); //改动（2）
+//        }
 
-        return null;
+//        return null;
     }
 
     /**
@@ -85,8 +85,8 @@ public class CustomerService {
      * @return
      */
     public Customer getCustomer(Long id){
-        //TODO
-        return null;
+        String sql="select * from customer where id=?";
+        return DataBaseHelper.queryEntity(Customer.class,sql,id);
     }
 
     /**
@@ -95,8 +95,7 @@ public class CustomerService {
      * @return
      */
     public boolean createCustomer(Map<String,Object> fieldMap){
-        //TODO
-        return false;
+        return DataBaseHelper.insertEntity(Customer.class,fieldMap);
     }
 
     /**
@@ -106,8 +105,7 @@ public class CustomerService {
      * @return
      */
     public boolean updataCustomer(long id,Map<String,Object> fieldMap){
-        //TODO
-        return false;
+        return DataBaseHelper.updateEntity(Customer.class,id,fieldMap);
     }
 
     /**
@@ -116,7 +114,6 @@ public class CustomerService {
      * @return
      */
     public boolean deleteCustomer(Long id){
-        //TODO
-        return false;
+        return DataBaseHelper.deleteEntity(Customer.class,id);
     }
 }
