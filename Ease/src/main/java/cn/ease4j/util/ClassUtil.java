@@ -5,16 +5,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
-/**
- * 类操作工具
- */
 public class ClassUtil {
-    //获取日志打印的容器
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassUtil.class);
 
     /**
@@ -28,89 +28,101 @@ public class ClassUtil {
     /**
      * 加载类
      * @param className
-     * @param isInitialized
+     * @param ifInitialize
      * @return
      */
-    public static Class<?> loadClass(String className,Boolean isInitialized){
-        Class<?> clazz=null;
+    public static Class<?> loadClass(String className,boolean ifInitialize){
+        Class<?> clz = null;
         try {
-            clazz = Class.forName(className, isInitialized, getClassLoader());
+            clz = Class.forName(className,ifInitialize,getClassLoader());
         } catch (ClassNotFoundException e) {
-//            e.printStackTrace();
             LOGGER.error("load class failure",e);
             throw new RuntimeException(e);
         }
-        return clazz;
+        return clz;
     }
 
     /**
-     * 获取包下的所有类
+     * 获取指定包下的所有类
      * @param packageName
      * @return
      */
     public static Set<Class<?>> getClassSet(String packageName){
+        //todo
+        //用于存储类名的集合
         Set<Class<?>> classSet = new HashSet<Class<?>>();
         try {
-            //URL类可以直接根据文件路径对文件进行读写操作
-            Enumeration<URL> urls = getClassLoader().getResources(packageName.replaceAll(".", "/"));
+            Enumeration<URL> urls = getClassLoader().getResources("".replaceAll(".", "/"));
             while(urls.hasMoreElements()){
                 URL url = urls.nextElement();
+                //非空校验
                 if(null != url){
                     String protocol = url.getProtocol();
-                    //如果是常规的文件，则调用addClass方法提取class文件，加入classSet集合
                     if(protocol.equals("file")){
-                        String packagePath = url.getPath().replaceAll("20%", " ");
-                        //
+                        String packagePath = url.getPath().replace("%20", "");
                         addClass(classSet,packagePath,packageName);
                     }
-                    //如果是jar包类型的文件
                     else if(protocol.equals("jar")){
+                        JarURLConnection jarURLConnection = (JarURLConnection)url.openConnection();
+                        if(null !=jarURLConnection){
+                            JarFile jarFile = jarURLConnection.getJarFile();
+                            if(null != jarFile){
+                                Enumeration<JarEntry> jarEntries = jarFile.entries();
+                                while(jarEntries.hasMoreElements()){
+                                    JarEntry jarEntry = jarEntries.nextElement();
+                                    String name = jarEntry.getName();
+                                    if(name.endsWith(".class")){
+                                        String className = name.substring(0,name.lastIndexOf(".")).replaceAll("/",".");
+                                        doAddClass(classSet,className);
 
+                                    }
+
+                                }
+                            }
+                        }
                     }
                 }
+
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
+        } catch (IOException e) {
+            LOGGER.error("get class set failure",e);
         }
 
         return null;
     }
 
     private static void addClass(Set<Class<?>> classSet, String packagePath, String packageName) {
-        //筛选文件列表（包括class文件、目录）
         File[] files = new File(packagePath).listFiles(new FileFilter() {
             public boolean accept(File file) {
-                return (file.isFile() && file.getName().endsWith("class")) || file.isDirectory();
+                return (file.isFile() && file.getName().endsWith(".class") || file.isDirectory());
             }
         });
-        for (File f : files) {
-            String fileName=f.getName();
-            if(f.isFile()){
-                String className=fileName.substring(0,fileName.lastIndexOf("."));
+        for (File file : files) {
+            String fileName = file.getName();
+            if(file.isFile()){
+                String className = fileName.substring(0, fileName.lastIndexOf("."));
                 if(StringUtil.isNotEmpty(packageName)){
-                    className=packageName+"."+className;
+                    doAddClass(classSet,className);
                 }
-                doAddClass(classSet,className);
             }
             else{
-                String subPackagePath=fileName;
-                if(StringUtil.isNotEmpty(subPackagePath)){
-                    subPackagePath=packagePath+"/"+subPackagePath;
+                String subPackagePath = fileName;
+                if(StringUtil.isNotEmpty(packagePath)){
+                    subPackagePath = packagePath + "/" + subPackagePath;
                 }
-                String subPackageName=fileName;
-                if(StringUtil.isNotEmpty(subPackageName)){
+                String subPackageName = fileName;
+                if(StringUtil.isNotEmpty(packageName)){
                     subPackageName=packageName+"."+subPackageName;
                 }
+                //递归
                 addClass(classSet,subPackagePath,subPackageName);
             }
         }
     }
 
     private static void doAddClass(Set<Class<?>> classSet, String className) {
-        Class<?> clazz = loadClass(className, false);
-        classSet.add(clazz);
+        Class<?> clz = loadClass(className, false);
+        classSet.add(clz);
     }
-
 
 }
