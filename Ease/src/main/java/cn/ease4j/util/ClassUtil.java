@@ -26,9 +26,9 @@ public class ClassUtil {
     }
 
     /**
-     * 加载类
+     * 加载类（返回class对象）
      * @param className
-     * @param ifInitialize
+     * @param ifInitialize 通常赋值为false
      * @return
      */
     public static Class<?> loadClass(String className,boolean ifInitialize){
@@ -48,7 +48,6 @@ public class ClassUtil {
      * @return
      */
     public static Set<Class<?>> getClassSet(String packageName){
-        //todo
         //用于存储类名的集合
         Set<Class<?>> classSet = new HashSet<Class<?>>();
         try {
@@ -59,7 +58,7 @@ public class ClassUtil {
                 if(null != url){
                     String protocol = url.getProtocol();
                     if(protocol.equals("file")){
-                        String packagePath = url.getPath().replace("%20", "");
+                        String packagePath = url.getPath().replace("%20", " ");
                         addClass(classSet,packagePath,packageName);
                     }
                     else if(protocol.equals("jar")){
@@ -72,17 +71,15 @@ public class ClassUtil {
                                     JarEntry jarEntry = jarEntries.nextElement();
                                     String name = jarEntry.getName();
                                     if(name.endsWith(".class")){
+                                        //去掉.class后缀并且将所有的"/"替换为"."
                                         String className = name.substring(0,name.lastIndexOf(".")).replaceAll("/",".");
                                         doAddClass(classSet,className);
-
                                     }
-
                                 }
                             }
                         }
                     }
                 }
-
             }
         } catch (IOException e) {
             LOGGER.error("get class set failure",e);
@@ -91,6 +88,12 @@ public class ClassUtil {
         return null;
     }
 
+    /**
+     * 递归获取包以及子包下的所有class文件，获取class名并加载
+     * @param classSet
+     * @param packagePath
+     * @param packageName
+     */
     private static void addClass(Set<Class<?>> classSet, String packagePath, String packageName) {
         File[] files = new File(packagePath).listFiles(new FileFilter() {
             public boolean accept(File file) {
@@ -106,20 +109,27 @@ public class ClassUtil {
                 }
             }
             else{
+                //子目录
                 String subPackagePath = fileName;
                 if(StringUtil.isNotEmpty(packagePath)){
                     subPackagePath = packagePath + "/" + subPackagePath;
                 }
+                //子包
                 String subPackageName = fileName;
                 if(StringUtil.isNotEmpty(packageName)){
                     subPackageName=packageName+"."+subPackageName;
                 }
-                //递归
+                //递归，在子目录、子包中查找class文件
                 addClass(classSet,subPackagePath,subPackageName);
             }
         }
     }
 
+    /**
+     * 仅生成class对象，不初始化实例
+     * @param classSet
+     * @param className
+     */
     private static void doAddClass(Set<Class<?>> classSet, String className) {
         Class<?> clz = loadClass(className, false);
         classSet.add(clz);
